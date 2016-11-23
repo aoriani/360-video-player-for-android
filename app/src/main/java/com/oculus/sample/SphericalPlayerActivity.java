@@ -19,10 +19,16 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
+import android.view.Display;
+import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.WindowManager;
@@ -43,6 +49,38 @@ public class SphericalPlayerActivity extends AppCompatActivity {
 
     private SphericalVideoPlayer videoPlayer;
 
+    private SensorManager mSensorManager;
+    private Sensor mAccelerometer;
+    private Sensor mMagnetometer;
+    private float[] mAccellValues = new float[3];
+    private float[] mMagnetValues = new float[3];
+    private int mDisplayRotation;
+
+    private final SensorEventListener mSensorEventListener = new SensorEventListener() {
+        @Override
+        public void onSensorChanged(SensorEvent event) {
+            switch (event.sensor.getType()) {
+                case Sensor.TYPE_ACCELEROMETER:
+                    mAccellValues = event.values;
+                    break;
+
+                case Sensor.TYPE_MAGNETIC_FIELD:
+                    mMagnetValues = event.values;
+                    break;
+
+                default:
+                    //do nothing
+            }
+
+            updateOrientation(remapCoordinates());
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,13 +93,48 @@ public class SphericalPlayerActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         requestExternalStoragePermission();
+
+        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+
+        WindowManager wm = ((WindowManager) getSystemService(Context.WINDOW_SERVICE));
+        Display display = wm.getDefaultDisplay();
+        mDisplayRotation = display.getRotation();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mSensorManager.registerListener(mSensorEventListener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(mSensorEventListener, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        mSensorManager.unregisterListener(mSensorEventListener);
+    }
+
+    private float[] remapCoordinates() {
+        float[] rotationMatrix = new float[9];
+        SensorManager.getRotationMatrix(rotationMatrix, null, mAccellValues, mMagnetValues);
+
+        int xAxis = SensorManager.AXIS_X;
+        int yAxis = SensorManager.AXIS_Z;
+
+        float[] resultMatrix = new float[9];
+        SensorManager.remapCoordinateSystem(rotationMatrix, xAxis, yAxis, resultMatrix);
+        return resultMatrix;
+    }
+
+    private void updateOrientation(float[] rotationMatrix) {
+        float[] orientationValues = new float[3];
+        SensorManager.getOrientation(rotationMatrix, orientationValues);
+
+        android.util.Log.d("ORIANI", "Azimute" +  Math.toDegrees(orientationValues[0]));
+
     }
 
     private void requestExternalStoragePermission() {
