@@ -67,25 +67,25 @@ public class SphericalVideoPlayer extends TextureView {
         }
     }
 
-    private SimpleOnGestureListener dragListener = new SimpleOnGestureListener() {
-        @Override
-        public boolean onDown(MotionEvent e) {
-            return true;
-        }
-
-        @Override
-        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            if (renderThread == null) {
-                return false;
-            }
-
-            Message msg = Message.obtain();
-            msg.what = RenderThread.MSG_ON_SCROLL;
-            msg.obj = new ScrollDeltaHolder(distanceX, distanceY);
-            renderThread.handler.sendMessage(msg);
-            return true;
-        }
-    };
+//    private SimpleOnGestureListener dragListener = new SimpleOnGestureListener() {
+//        @Override
+//        public boolean onDown(MotionEvent e) {
+//            return true;
+//        }
+//
+//        @Override
+//        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+//            if (renderThread == null) {
+//                return false;
+//            }
+//
+//            Message msg = Message.obtain();
+//            msg.what = RenderThread.MSG_ON_SCROLL;
+//            msg.obj = new ScrollDeltaHolder(distanceX, distanceY);
+//            renderThread.handler.sendMessage(msg);
+//            return true;
+//        }
+//    };
 
     private GestureDetector gestureDetector;
 
@@ -99,14 +99,14 @@ public class SphericalVideoPlayer extends TextureView {
 
     public SphericalVideoPlayer(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        gestureDetector = new GestureDetector(getContext(), dragListener);
-
-        setOnTouchListener(new OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                return gestureDetector.onTouchEvent(event);
-            }
-        });
+//        gestureDetector = new GestureDetector(getContext(), dragListener);
+//
+//        setOnTouchListener(new OnTouchListener() {
+//            @Override
+//            public boolean onTouch(View v, MotionEvent event) {
+//                return gestureDetector.onTouchEvent(event);
+//            }
+//        });
     }
 
     public void initRenderThread(SurfaceTexture surface, int width, int height) {
@@ -176,6 +176,17 @@ public class SphericalVideoPlayer extends TextureView {
         }
     }
 
+    public void setAxis(float x) {
+        if (renderThread == null) {
+                return ;
+        }
+
+        Message msg = Message.obtain();
+        msg.what = RenderThread.MSG_SENSOR;
+        msg.obj = x;
+        renderThread.handler.sendMessage(msg);
+    }
+
     public void releaseResources() {
         renderThread.handler.sendEmptyMessage(RenderThread.MSG_SURFACE_DESTROYED);
     }
@@ -198,7 +209,8 @@ public class SphericalVideoPlayer extends TextureView {
         private static final int MSG_VSYNC = 0x2;
         private static final int MSG_FRAME_AVAILABLE = 0x3;
         private static final int MSG_SURFACE_DESTROYED = 0x4;
-        private static final int MSG_ON_SCROLL = 0x5;
+//        private static final int MSG_ON_SCROLL = 0x5;
+        private static final int MSG_SENSOR = 0x6;
 
         private static final float FOVY = 70f;
         private static final float Z_NEAR = 1f;
@@ -220,13 +232,15 @@ public class SphericalVideoPlayer extends TextureView {
 
         private float[] camera = new float[3];
 
-        private float lon;
-        private float lat;
+//        private float lon;
+//        private float lat;
 
         private boolean frameAvailable;
         private boolean pendingCameraUpdate;
 
         private SphericalSceneRenderer renderer;
+        private double mPhi;
+        private double mTheta;
 
         private class ChoreographerCallback implements Choreographer.FrameCallback {
             @Override
@@ -260,9 +274,13 @@ public class SphericalVideoPlayer extends TextureView {
                            case MSG_SURFACE_DESTROYED:
                                onSurfaceDestroyed();
                                break;
-                           case MSG_ON_SCROLL:
-                               onScroll((ScrollDeltaHolder)msg.obj);
-                               break;
+//                           case MSG_ON_SCROLL:
+//                               onScroll((ScrollDeltaHolder)msg.obj);
+//                               break;
+
+                            case MSG_SENSOR:
+                                onSensor((Float)msg.obj);
+                                break;
                         }
                     }
                 };
@@ -352,14 +370,17 @@ public class SphericalVideoPlayer extends TextureView {
         }
 
         private void updateCamera() {
-            lat = Math.max(-85, Math.min(85, lat));
+            //lat = Math.max(-85, Math.min(85, lat));
 
-            float phi = (float)Math.toRadians(90 - lat);
-            float theta = (float)Math.toRadians(lon);
+            //mPhi = (float)Math.toRadians(90 - lat);
+            //mTheta = (float)Math.toRadians(lon);
 
-            camera[0] = (float)(100.f * Math.sin(phi) * Math.cos(theta));
-            camera[1] = (float)(100.f * Math.cos(phi));
-            camera[2] = (float)(100.f * Math.sin(phi) * Math.sin(theta));
+            mPhi = Math.toRadians(90);
+            //mTheta = 0;
+
+            camera[0] = (float)(100.f * Math.sin(mPhi) * Math.cos(mTheta));
+            camera[1] = (float)(100.f * Math.cos(mPhi));
+            camera[2] = (float)(100.f * Math.sin(mPhi) * Math.sin(mTheta));
 
             Matrix.setLookAtM(
                     viewMatrix, 0,
@@ -399,10 +420,16 @@ public class SphericalVideoPlayer extends TextureView {
             renderer.release();
         }
 
-        private void onScroll(ScrollDeltaHolder deltaHolder) {
-            lon = (deltaHolder.deltaX) * DRAG_FRICTION + lon;
-            lat = -(deltaHolder.deltaY) * DRAG_FRICTION + lat;
+//        private void onScroll(ScrollDeltaHolder deltaHolder) {
+//            lon = (deltaHolder.deltaX) * DRAG_FRICTION + lon;
+//            lat = -(deltaHolder.deltaY) * DRAG_FRICTION + lat;
+//            pendingCameraUpdate = true;
+//        }
+
+        private void onSensor(float x) {
+            mTheta = x;
             pendingCameraUpdate = true;
         }
+
     }
 }

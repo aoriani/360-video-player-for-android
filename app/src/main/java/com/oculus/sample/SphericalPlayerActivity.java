@@ -28,7 +28,6 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Display;
-import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.WindowManager;
@@ -134,6 +133,7 @@ public class SphericalPlayerActivity extends AppCompatActivity {
         SensorManager.getOrientation(rotationMatrix, orientationValues);
 
         android.util.Log.d("ORIANI", "Azimute" +  Math.toDegrees(orientationValues[0]));
+        videoPlayer.setAxis(orientationValues[0]);
 
     }
 
