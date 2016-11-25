@@ -27,7 +27,6 @@ import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.view.Display;
 import android.view.TextureView;
 import android.view.View;
 import android.view.WindowManager;
@@ -53,7 +52,8 @@ public class SphericalPlayerActivity extends AppCompatActivity {
     private Sensor mMagnetometer;
     private float[] mAccellValues = new float[3];
     private float[] mMagnetValues = new float[3];
-    private int mDisplayRotation;
+
+    private SensorSmoother mSensorSmoother = new SensorSmoother();
 
     private final SensorEventListener mSensorEventListener = new SensorEventListener() {
         @Override
@@ -96,17 +96,13 @@ public class SphericalPlayerActivity extends AppCompatActivity {
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-
-        WindowManager wm = ((WindowManager) getSystemService(Context.WINDOW_SERVICE));
-        Display display = wm.getDefaultDisplay();
-        mDisplayRotation = display.getRotation();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        mSensorManager.registerListener(mSensorEventListener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-        mSensorManager.registerListener(mSensorEventListener, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(mSensorEventListener, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+        mSensorManager.registerListener(mSensorEventListener, mMagnetometer, SensorManager.SENSOR_DELAY_GAME);
     }
 
     @Override
@@ -132,8 +128,9 @@ public class SphericalPlayerActivity extends AppCompatActivity {
         float[] orientationValues = new float[3];
         SensorManager.getOrientation(rotationMatrix, orientationValues);
 
-        android.util.Log.d("ORIANI", "Azimute" +  Math.toDegrees(orientationValues[0]));
-        videoPlayer.setAxis(orientationValues[0]);
+        mSensorSmoother.addReadings(orientationValues);
+
+        videoPlayer.setOrientation(mSensorSmoother.getOrientation());
 
     }
 

@@ -38,6 +38,7 @@ import android.view.View;
 
 import static com.oculus.sample.SphericalPlayerActivity.toast;
 
+import com.oculus.sample.SensorSmoother;
 import com.oculus.sample.gles.EGLRenderTarget;
 import com.oculus.sample.gles.GLHelpers;
 import com.oculus.sample.gles.SphericalSceneRenderer;
@@ -176,14 +177,14 @@ public class SphericalVideoPlayer extends TextureView {
         }
     }
 
-    public void setAxis(float x) {
+    public void setOrientation(SensorSmoother.Orientation orientation) {
         if (renderThread == null) {
                 return ;
         }
 
         Message msg = Message.obtain();
         msg.what = RenderThread.MSG_SENSOR;
-        msg.obj = x;
+        msg.obj = orientation;
         renderThread.handler.sendMessage(msg);
     }
 
@@ -279,7 +280,7 @@ public class SphericalVideoPlayer extends TextureView {
 //                               break;
 
                             case MSG_SENSOR:
-                                onSensor((Float)msg.obj);
+                                onSensor((SensorSmoother.Orientation)msg.obj);
                                 break;
                         }
                     }
@@ -370,14 +371,6 @@ public class SphericalVideoPlayer extends TextureView {
         }
 
         private void updateCamera() {
-            //lat = Math.max(-85, Math.min(85, lat));
-
-            //mPhi = (float)Math.toRadians(90 - lat);
-            //mTheta = (float)Math.toRadians(lon);
-
-            mPhi = Math.toRadians(90);
-            //mTheta = 0;
-
             camera[0] = (float)(100.f * Math.sin(mPhi) * Math.cos(mTheta));
             camera[1] = (float)(100.f * Math.cos(mPhi));
             camera[2] = (float)(100.f * Math.sin(mPhi) * Math.sin(mTheta));
@@ -426,8 +419,9 @@ public class SphericalVideoPlayer extends TextureView {
 //            pendingCameraUpdate = true;
 //        }
 
-        private void onSensor(float x) {
-            mTheta = x;
+        private void onSensor(SensorSmoother.Orientation orientation) {
+            mPhi = orientation.phi;
+            mTheta = orientation.theta;
             pendingCameraUpdate = true;
         }
 
