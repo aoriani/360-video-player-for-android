@@ -29,16 +29,11 @@ import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Choreographer;
-import android.view.GestureDetector;
-import android.view.GestureDetector.SimpleOnGestureListener;
-import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
-import android.view.View;
 
 import static com.oculus.sample.SphericalPlayerActivity.toast;
 
-import com.oculus.sample.SensorSmoother;
 import com.oculus.sample.gles.EGLRenderTarget;
 import com.oculus.sample.gles.GLHelpers;
 import com.oculus.sample.gles.SphericalSceneRenderer;
@@ -59,36 +54,6 @@ public class SphericalVideoPlayer extends TextureView {
 
     private boolean readyToPlay;
 
-    private class ScrollDeltaHolder {
-        float deltaX, deltaY;
-
-        ScrollDeltaHolder(float dx, float dy) {
-            deltaX = dx;
-            deltaY = dy;
-        }
-    }
-
-//    private SimpleOnGestureListener dragListener = new SimpleOnGestureListener() {
-//        @Override
-//        public boolean onDown(MotionEvent e) {
-//            return true;
-//        }
-//
-//        @Override
-//        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-//            if (renderThread == null) {
-//                return false;
-//            }
-//
-//            Message msg = Message.obtain();
-//            msg.what = RenderThread.MSG_ON_SCROLL;
-//            msg.obj = new ScrollDeltaHolder(distanceX, distanceY);
-//            renderThread.handler.sendMessage(msg);
-//            return true;
-//        }
-//    };
-
-    private GestureDetector gestureDetector;
 
     public SphericalVideoPlayer(Context context) {
         this(context, null);
@@ -100,14 +65,6 @@ public class SphericalVideoPlayer extends TextureView {
 
     public SphericalVideoPlayer(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-//        gestureDetector = new GestureDetector(getContext(), dragListener);
-//
-//        setOnTouchListener(new OnTouchListener() {
-//            @Override
-//            public boolean onTouch(View v, MotionEvent event) {
-//                return gestureDetector.onTouchEvent(event);
-//            }
-//        });
     }
 
     public void initRenderThread(SurfaceTexture surface, int width, int height) {
@@ -177,19 +134,29 @@ public class SphericalVideoPlayer extends TextureView {
         }
     }
 
-    public void setOrientation(SensorSmoother.Orientation orientation) {
+    public void setOrientation(Orientation orientation) {
         if (renderThread == null) {
                 return ;
         }
 
         Message msg = Message.obtain();
-        msg.what = RenderThread.MSG_SENSOR;
+        msg.what = RenderThread.MSG_NEW_ORIENTATION;
         msg.obj = orientation;
         renderThread.handler.sendMessage(msg);
     }
 
     public void releaseResources() {
         renderThread.handler.sendEmptyMessage(RenderThread.MSG_SURFACE_DESTROYED);
+    }
+
+    public static class Orientation {
+        public final double phi;
+        public final double theta;
+
+        public Orientation(double phi, double theta) {
+            this.phi = phi;
+            this.theta = theta;
+        }
     }
 
     /**
@@ -210,13 +177,11 @@ public class SphericalVideoPlayer extends TextureView {
         private static final int MSG_VSYNC = 0x2;
         private static final int MSG_FRAME_AVAILABLE = 0x3;
         private static final int MSG_SURFACE_DESTROYED = 0x4;
-//        private static final int MSG_ON_SCROLL = 0x5;
-        private static final int MSG_SENSOR = 0x6;
+        private static final int MSG_NEW_ORIENTATION = 0x5;
 
         private static final float FOVY = 70f;
         private static final float Z_NEAR = 1f;
         private static final float Z_FAR = 1000f;
-        private static final float DRAG_FRICTION = 0.1f;
         private static final float INITIAL_PITCH_DEGREES = 90.f;
 
         private Handler handler;
@@ -232,9 +197,6 @@ public class SphericalVideoPlayer extends TextureView {
         private float[] projectionMatrix = new float[16];
 
         private float[] camera = new float[3];
-
-//        private float lon;
-//        private float lat;
 
         private boolean frameAvailable;
         private boolean pendingCameraUpdate;
@@ -275,12 +237,8 @@ public class SphericalVideoPlayer extends TextureView {
                            case MSG_SURFACE_DESTROYED:
                                onSurfaceDestroyed();
                                break;
-//                           case MSG_ON_SCROLL:
-//                               onScroll((ScrollDeltaHolder)msg.obj);
-//                               break;
-
-                            case MSG_SENSOR:
-                                onSensor((SensorSmoother.Orientation)msg.obj);
+                            case MSG_NEW_ORIENTATION:
+                                onNewOrientation((Orientation)msg.obj);
                                 break;
                         }
                     }
@@ -413,13 +371,7 @@ public class SphericalVideoPlayer extends TextureView {
             renderer.release();
         }
 
-//        private void onScroll(ScrollDeltaHolder deltaHolder) {
-//            lon = (deltaHolder.deltaX) * DRAG_FRICTION + lon;
-//            lat = -(deltaHolder.deltaY) * DRAG_FRICTION + lat;
-//            pendingCameraUpdate = true;
-//        }
-
-        private void onSensor(SensorSmoother.Orientation orientation) {
+        private void onNewOrientation(Orientation orientation) {
             mPhi = orientation.phi;
             mTheta = orientation.theta;
             pendingCameraUpdate = true;

@@ -19,10 +19,6 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -39,46 +35,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
-public class SphericalPlayerActivity extends AppCompatActivity {
+public class SphericalPlayerActivity extends AppCompatActivity
+        implements OrientationSensorManager.OnNewOrientationListener {
+
     private final String SAMPLE_VIDEO_PATH =
             "android.resource://com.oculus.sample/raw/" + R.raw.sample360;
-
     private static final int PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE = 0x1;
+    private static final double EIGHTY_FIVE_DEGREE = 85 * Math.PI / 180;
 
     private SphericalVideoPlayer videoPlayer;
-
-    private SensorManager mSensorManager;
-    private Sensor mAccelerometer;
-    private Sensor mMagnetometer;
-    private float[] mAccellValues = new float[3];
-    private float[] mMagnetValues = new float[3];
-
-    private SensorSmoother mSensorSmoother = new SensorSmoother();
-
-    private final SensorEventListener mSensorEventListener = new SensorEventListener() {
-        @Override
-        public void onSensorChanged(SensorEvent event) {
-            switch (event.sensor.getType()) {
-                case Sensor.TYPE_ACCELEROMETER:
-                    mAccellValues = event.values;
-                    break;
-
-                case Sensor.TYPE_MAGNETIC_FIELD:
-                    mMagnetValues = event.values;
-                    break;
-
-                default:
-                    //do nothing
-            }
-
-            updateOrientation(remapCoordinates());
-        }
-
-        @Override
-        public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-        }
-    };
+    private OrientationSensorManager mSensorManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,49 +55,25 @@ public class SphericalPlayerActivity extends AppCompatActivity {
         videoPlayer.setVideoURIPath(SAMPLE_VIDEO_PATH);
         videoPlayer.playWhenReady();
 
+        mSensorManager = new OrientationSensorManager(this);
+        mSensorManager.setListener(this);
+
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         requestExternalStoragePermission();
-
-        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        mSensorManager.registerListener(mSensorEventListener, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
-        mSensorManager.registerListener(mSensorEventListener, mMagnetometer, SensorManager.SENSOR_DELAY_GAME);
+        mSensorManager.start();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        mSensorManager.stop();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        mSensorManager.unregisterListener(mSensorEventListener);
-    }
-
-    private float[] remapCoordinates() {
-        float[] rotationMatrix = new float[9];
-        SensorManager.getRotationMatrix(rotationMatrix, null, mAccellValues, mMagnetValues);
-
-        int xAxis = SensorManager.AXIS_X;
-        int yAxis = SensorManager.AXIS_Z;
-
-        float[] resultMatrix = new float[9];
-        SensorManager.remapCoordinateSystem(rotationMatrix, xAxis, yAxis, resultMatrix);
-        return resultMatrix;
-    }
-
-    private void updateOrientation(float[] rotationMatrix) {
-        float[] orientationValues = new float[3];
-        SensorManager.getOrientation(rotationMatrix, orientationValues);
-
-        mSensorSmoother.addReadings(orientationValues);
-
-        videoPlayer.setOrientation(mSensorSmoother.getOrientation());
-
     }
 
     private void requestExternalStoragePermission() {
@@ -222,5 +164,13 @@ public class SphericalPlayerActivity extends AppCompatActivity {
                             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                             | View.SYSTEM_UI_FLAG_FULLSCREEN
                             | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);}
+    }
+
+    @Override
+    public void onNewOrientation(float azimuth, float pitch, float roll) {
+        final double phi = Math.max(-EIGHTY_FIVE_DEGREE, Math.min(pitch, EIGHTY_FIVE_DEGREE)) + Math.PI/2.0;
+        final double theta = azimuth;
+
+        videoPlayer.setOrientation(new SphericalVideoPlayer.Orientation(phi, theta));
     }
 }
